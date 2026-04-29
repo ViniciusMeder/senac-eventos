@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { Search, Calendar, MapPin, ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { events } from "../data/events";
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
-import { Card, CardContent, CardFooter, CardHeader } from "../components/ui/card";
-import { Badge } from "../components/ui/badge";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { Card, CardContent, CardFooter, CardHeader } from "../../components/ui/card";
+import { Badge } from "../../components/ui/badge";
 import { motion, AnimatePresence } from "motion/react";
 import { Link } from "react-router-dom";
 
