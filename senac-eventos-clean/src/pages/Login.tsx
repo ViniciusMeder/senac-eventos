@@ -1,6 +1,6 @@
 import { useState, FormEvent } from "react";
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
 import { motion } from "motion/react";
 import { ArrowLeft, Lock, User } from "lucide-react";
 import { Link } from "react-router-dom";
