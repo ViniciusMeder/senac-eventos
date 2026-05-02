@@ -10,26 +10,29 @@ import { Link } from "react-router-dom";
 
 const categories = ["Todos", "Workshop", "Palestra", "Networking", "Conferência"];
 
-// videos do hero carousel
-const videos = [
+// ========== HERO MEDIA (IMAGENS + VÍDEOS) ==========
+const heroMedia = [
   {
     id: 1,
-    url: "https://player.vimeo.com/external/371415494.sd.mp4?s=330c6fa4d52899bc5d0232a5ef1261d2d0910ee2&profile_id=164&oauth2_token_id=57447761",
+    type: "image",
+    url: "https://img.freepik.com/fotos-gratis/reuniao-de-trabalho-em-equipe-com-empresarios_23-2148825942.jpg?semt=ais_hybrid&w=740&q=80",
     title: "Conectando Ideias",
     subtitle: "A maior rede de inovacao corporativa do pais."
   },
   {
     id: 2,
-    url: "https://player.vimeo.com/external/403756816.sd.mp4?s=d0107a6839352e8508e734346e2f12258d4a9740&profile_id=164&oauth2_token_id=57447761",
+    type: "image",
+    url: "https://blog.ebaconline.com.br/blog/wp-content/uploads/2024/11/21-o-que-e-networking-significado-para-que-serve-tipos-e-exemplos-como-usar-na-pratica.png",
     title: "Networking de Elite",
     subtitle: "Sua rede de contatos estrategicos comeca aqui."
   },
   {
     id: 3,
-    url: "https://player.vimeo.com/external/370331493.sd.mp4?s=338e55ec7053e34b17aa18d5301844b2f281e028&profile_id=164&oauth2_token_id=57447761",
+    type: "image  ",
+    url: "https://www.remessaonline.com.br/blog/wp-content/uploads/2022/05/profissoes-do-futuro.jpg",
     title: "Futuro em Foco",
     subtitle: "Evolua sua carreira com os maiores especialistas."
-  }
+  },
 ];
 
 // anima o texto letra por letra com cursor piscando no final
@@ -68,13 +71,13 @@ function CodeReveal({ text, className }: { text: string; className?: string }) {
 export default function Home() {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeCategory, setActiveCategory] = useState("Todos");
-  const [currentVideo, setCurrentVideo] = useState(0);
+  const [currentMedia, setCurrentMedia] = useState(0);
   const eventsSectionRef = useRef<HTMLElement>(null);
 
-  // troca o video automaticamente a cada 8 segundos
+  // troca o media automaticamente a cada 8 segundos
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentVideo((prev) => (prev + 1) % videos.length);
+      setCurrentMedia((prev) => (prev + 1) % heroMedia.length);
     }, 8000);
     return () => clearInterval(timer);
   }, []);
@@ -110,31 +113,40 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* hero com video em loop e transicao suave entre clipes */}
+      {/* hero com imagem/video em loop e transicao suave */}
       <section className="relative h-[100vh] w-full overflow-hidden bg-slate-950">
         <AnimatePresence>
           <motion.div
-            key={currentVideo}
+            key={currentMedia}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 2, ease: "easeInOut" }}
             className="absolute inset-0 z-0"
           >
-            <video
-              autoPlay
-              muted
-              loop
-              playsInline
-              preload="auto"
-              onCanPlay={(e) => {
-                e.currentTarget.play().catch(() => {
-                  console.log("autoplay bloqueado pelo navegador");
-                });
-              }}
-              className="w-full h-full object-cover opacity-60 scale-105"
-              src={videos[currentVideo].url}
-            />
+            {/* Renderização condicional: vídeo ou imagem */}
+            {heroMedia[currentMedia].type === "video" ? (
+              <video
+                autoPlay
+                muted
+                loop
+                playsInline
+                preload="auto"
+                onCanPlay={(e) => {
+                  e.currentTarget.play().catch(() => {
+                    console.log("autoplay bloqueado pelo navegador");
+                  });
+                }}
+                className="w-full h-full object-cover opacity-60 scale-105"
+                src={heroMedia[currentMedia].url}
+              />
+            ) : (
+              <img
+                src={heroMedia[currentMedia].url}
+                alt={heroMedia[currentMedia].title}
+                className="w-full h-full object-cover opacity-60 scale-105"
+              />
+            )}
             {/* gradiente para escurecer a base e destacar o texto */}
             <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/40 to-slate-900/60" />
           </motion.div>
@@ -153,11 +165,11 @@ export default function Home() {
             </motion.div>
             
             <h1 className="text-6xl md:text-9xl font-black text-white tracking-tighter uppercase mb-6 leading-[0.9] flex flex-col items-center min-h-[1.5em] justify-center">
-              <CodeReveal text={videos[currentVideo].title} />
+              <CodeReveal text={heroMedia[currentMedia].title} />
             </h1>
             
             <p className="text-xl md:text-3xl text-slate-300 max-w-3xl mx-auto font-light mb-12 italic min-h-[2em] flex items-center justify-center">
-              <CodeReveal text={videos[currentVideo].subtitle} />
+              <CodeReveal text={heroMedia[currentMedia].subtitle} />
             </p>
 
             <div className="flex gap-6 pointer-events-auto justify-center">
@@ -174,22 +186,22 @@ export default function Home() {
         {/* controles do carousel: setas e indicadores de slide */}
         <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-10 z-20">
           <button 
-            onClick={() => setCurrentVideo((prev) => (prev - 1 + videos.length) % videos.length)}
+            onClick={() => setCurrentMedia((prev) => (prev - 1 + heroMedia.length) % heroMedia.length)}
             className="text-white/30 hover:text-white transition-all transform hover:scale-125"
           >
             <ChevronLeft className="w-10 h-10" />
           </button>
           <div className="flex gap-4">
-            {videos.map((_, i) => (
+            {heroMedia.map((_, i) => (
               <button 
                 key={i} 
-                onClick={() => setCurrentVideo(i)}
-                className={`h-1.5 transition-all duration-500 rounded-full ${currentVideo === i ? "w-16 bg-senac-orange" : "w-6 bg-white/10 hover:bg-white/30"}`}
+                onClick={() => setCurrentMedia(i)}
+                className={`h-1.5 transition-all duration-500 rounded-full ${currentMedia === i ? "w-16 bg-senac-orange" : "w-6 bg-white/10 hover:bg-white/30"}`}
               />
             ))}
           </div>
           <button 
-            onClick={() => setCurrentVideo((prev) => (prev + 1) % videos.length)}
+            onClick={() => setCurrentMedia((prev) => (prev + 1) % heroMedia.length)}
             className="text-white/30 hover:text-white transition-all transform hover:scale-125"
           >
             <ChevronRight className="w-10 h-10" />
