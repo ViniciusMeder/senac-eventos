@@ -28,3 +28,12 @@ O projeto deve ser desenvolvido utilizando obrigatoriamente:
 ## Arquiteturas
 
 ## Instruções para execução
+
+### Rodando localmente
+**Requisitos:** Node.js, Next.js
+
+1. Realize o download e instalação do [Node.js](https://nodejs.org/en)
+   
+3. Instale as dependências Next.js: `npm install`
+
+5. Rode o projeto: `npm run dev`
