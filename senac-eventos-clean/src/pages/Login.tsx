@@ -4,6 +4,7 @@ import { Input } from "../../components/ui/input";
 import { motion } from "motion/react";
 import { ArrowLeft, Lock, User } from "lucide-react";
 import { Link } from "react-router-dom";
+import { login } from "../utils/auth";
 
 export default function Login() {
   const [matricula, setMatricula] = useState("");
@@ -12,15 +13,19 @@ export default function Login() {
 
   // valida credenciais e redireciona se correto
   const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    setError("");
-    
-    if (matricula === "123456" && senha === "senac") {
-      window.location.href = "/";
-    } else {
-      setError("Credenciais inválidas. Use 123456 / senac");
-    }
-  };
+  e.preventDefault();
+  setError("");
+
+  const userType = login(matricula, senha);
+
+  if (userType === "gestor") {
+    window.location.href = "/gestor";
+  } else if (userType === "aluno") {
+    window.location.href = "/";
+  } else {
+    setError("Credenciais inválidas.");
+  }
+};
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-senac-blue/5 via-slate-50 to-slate-50">
