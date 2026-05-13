@@ -24,6 +24,35 @@ O projeto deve ser desenvolvido utilizando obrigatoriamente:
 
 ## Arquiteturas
 
+O projeto segue uma arquitetura de **Single Page Application (SPA)** com React + Vite,
+organizada por funcionalidade:
+
+### Estrutura de Pastas
+
+senac-eventos-clean/
+├── src/
+│   ├── pages/        # Páginas da aplicação (Home, Login, Gestor)
+│   ├── data/         # Dados estáticos e mocks (eventos)
+│   └── utils/        # Funções auxiliares (autenticação)
+├── components/
+│   └── ui/           # Componentes reutilizáveis de interface (shadcn/ui)
+└── lib/
+    └── utils.ts      # Utilitários compartilhados (cn, etc.)
+
+### Fluxo de Navegação
+
+- `/`        → Página principal com listagem e busca de eventos
+- `/login`   → Autenticação de gestores
+- `/gestor`  → Painel de gerenciamento de eventos (área restrita)
+
+### Padrões Adotados
+
+- **Componentes UI reutilizáveis** via shadcn/ui (Button, Card, Badge, Input)
+- **Roteamento client-side** com React Router DOM v7
+- **Animações declarativas** com Framer Motion (Motion)
+- **Dados mockados** em `src/data/events.ts` (sem backend ainda)
+- **Estilização utilitária** com Tailwind CSS v4
+
 ## Instruções para execução
 
 ### Rodando localmente
