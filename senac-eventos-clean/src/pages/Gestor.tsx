@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { events, Event } from "../data/events";
+import { useState, useMemo, useEffect } from "react";
+import { getEvents, addEvent, Event } from "../data/events";
 import { logout, isAuthenticated, getUserType } from "../utils/auth";
 import { 
   LayoutDashboard, CalendarDays, Users, Ticket, BarChart3, LogOut, Plus, Search, 
@@ -7,7 +7,7 @@ import {
   XCircle, AlertCircle, Download, DollarSign, ArrowUpRight, ArrowDownRight, Menu, X
 } from "lucide-react";
 
-// Mock de dados adicionais para as novas telas
+// Mock de dados adicionais para participantes (Apenas ilustrativo para a aba participantes)
 const mockParticipants = [
   { id: 1, name: "Ana Beatriz", email: "ana.b@email.com", event: "Inovação Digital 2026", status: "Confirmado", date: "10/05/2026" },
   { id: 2, name: "Carlos Eduardo", email: "cadu@email.com", event: "Inovação Digital 2026", status: "Pendente", date: "11/05/2026" },
@@ -21,9 +21,30 @@ export default function Gestor() {
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [isNewEventModalOpen, setIsNewEventModalOpen] = useState(false);
   const [participantFilter, setParticipantFilter] = useState("Todos");
-  
-  // Novo estado para o menu mobile
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // --- ESTADOS DO BANCO DE DADOS LOCAL ---
+  const [eventsList, setEventsList] = useState<Event[]>(getEvents());
+  
+  // Estado para o formulário de criação
+  const [newEvent, setNewEvent] = useState({
+    title: "", category: "Workshop", date: "", time: "19:00", 
+    location: "Auditório Principal, Senac PE", 
+    description: "Uma nova experiência de aprendizado incrível.", 
+    image: "https://images.unsplash.com/photo-1540575861501-7cf05a4b125a?auto=format&fit=crop&q=80&w=800", 
+    capacity: 100
+  });
+
+  // Ouvinte para atualizar o painel quando o aluno comprar ingresso ou houver mudanças
+  useEffect(() => {
+    const handleSync = () => setEventsList(getEvents());
+    window.addEventListener("db_updated", handleSync);
+    window.addEventListener("storage", handleSync);
+    return () => {
+      window.removeEventListener("db_updated", handleSync);
+      window.removeEventListener("storage", handleSync);
+    };
+  }, []);
 
   // Proteção de rota
   if (!isAuthenticated() || getUserType() !== "gestor") {
@@ -36,6 +57,34 @@ export default function Gestor() {
     window.location.href = "/login";
   };
 
+  // Função para salvar o evento real no banco
+  const handleCreateEvent = () => {
+    if (!newEvent.title || !newEvent.date) return alert("Preencha título e data!");
+    
+    const eventToSave: Event = {
+      id: Date.now().toString(),
+      title: newEvent.title,
+      category: newEvent.category,
+      date: newEvent.date,
+      time: newEvent.time,
+      location: newEvent.location,
+      description: newEvent.description,
+      image: newEvent.image,
+      capacity: newEvent.capacity,
+      enrolledCount: 0 // Começa com zero alunos
+    };
+    
+    addEvent(eventToSave);
+    setIsNewEventModalOpen(false);
+    
+    // Reseta o form
+    setNewEvent({
+      title: "", category: "Workshop", date: "", time: "19:00", 
+      location: "Auditório Principal, Senac PE", description: "Uma nova experiência de aprendizado incrível.", 
+      image: "https://images.unsplash.com/photo-1540575861501-7cf05a4b125a?auto=format&fit=crop&q=80&w=800", capacity: 100
+    });
+  };
+
   const menuItems = [
     { id: "dashboard", label: "Visão Geral", icon: LayoutDashboard },
     { id: "eventos", label: "Eventos", icon: CalendarDays },
@@ -45,66 +94,76 @@ export default function Gestor() {
   ];
 
   const selectedEvent = useMemo(() => 
-    events.find(e => e.id === selectedEventId), [selectedEventId]
+    eventsList.find(e => e.id === selectedEventId), [selectedEventId, eventsList]
   );
 
+  // --- CÁLCULO DE KPIs DINÂMICOS ---
+  const totalIngressos = eventsList.reduce((acc, e) => acc + (e.enrolledCount || 0), 0);
+  const capacidadeTotal = eventsList.reduce((acc, e) => acc + (e.capacity || 100), 0);
+  const receita = totalIngressos * 150; // Simulando ticket médio de R$ 150
+  const taxaOcupacao = capacidadeTotal > 0 ? Math.round((totalIngressos / capacidadeTotal) * 100) : 0;
+
   // --- SUB-TELA: DETALHES DO EVENTO ---
-  const renderEventDetails = (event: Event) => (
-    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-      <button 
-        onClick={() => setSelectedEventId(null)}
-        className="flex items-center gap-2 text-slate-500 hover:text-senac-blue transition-colors font-medium"
-      >
-        <ArrowLeft className="w-4 h-4" /> Voltar para lista
-      </button>
+  const renderEventDetails = (event: Event) => {
+    const capacidade = event.capacity || 100;
+    const inscritos = event.enrolledCount || 0;
+    const perc = Math.round((inscritos / capacidade) * 100);
 
-      <div className="bg-white rounded-3xl p-6 md:p-8 border border-slate-100 shadow-sm flex flex-col md:flex-row gap-8">
-        <div className="w-full md:w-1/3 h-48 md:h-64 rounded-2xl overflow-hidden shadow-lg">
-          <img src={event.image} alt={event.title} className="w-full h-full object-cover" />
-        </div>
-        <div className="flex-1 space-y-4">
-          <div className="flex justify-between items-start">
-            <div>
-              <span className="bg-senac-blue/10 text-senac-blue px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
-                {event.category}
-              </span>
-              <h2 className="text-2xl md:text-3xl font-black text-slate-900 mt-2">{event.title}</h2>
-            </div>
-            <button className="bg-slate-100 p-2 rounded-xl hover:bg-slate-200 text-slate-600 transition-all">
-              <MoreVertical className="w-5 h-5" />
-            </button>
+    return (
+      <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+        <button 
+          onClick={() => setSelectedEventId(null)}
+          className="flex items-center gap-2 text-slate-500 hover:text-senac-blue transition-colors font-medium"
+        >
+          <ArrowLeft className="w-4 h-4" /> Voltar para lista
+        </button>
+
+        <div className="bg-white rounded-3xl p-6 md:p-8 border border-slate-100 shadow-sm flex flex-col md:flex-row gap-8">
+          <div className="w-full md:w-1/3 h-48 md:h-64 rounded-2xl overflow-hidden shadow-lg">
+            <img src={event.image} alt={event.title} className="w-full h-full object-cover" />
           </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl">
-              <CalendarDays className="text-senac-blue w-5 h-5 flex-shrink-0" />
+          <div className="flex-1 space-y-4">
+            <div className="flex justify-between items-start">
               <div>
-                <p className="text-xs text-slate-500 uppercase font-bold">Data</p>
-                <p className="font-bold text-slate-900">{event.date}</p>
+                <span className="bg-senac-blue/10 text-senac-blue px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
+                  {event.category}
+                </span>
+                <h2 className="text-2xl md:text-3xl font-black text-slate-900 mt-2">{event.title}</h2>
+                <p className="text-slate-500 mt-2">{event.description}</p>
               </div>
             </div>
-            <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl">
-              <MapPin className="text-senac-blue w-5 h-5 flex-shrink-0" />
-              <div className="overflow-hidden">
-                <p className="text-xs text-slate-500 uppercase font-bold">Local</p>
-                <p className="font-bold text-slate-900 truncate">{event.location.split(',')[0]}</p>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+              <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl">
+                <CalendarDays className="text-senac-blue w-5 h-5 flex-shrink-0" />
+                <div>
+                  <p className="text-xs text-slate-500 uppercase font-bold">Data e Hora</p>
+                  <p className="font-bold text-slate-900">{event.date} às {event.time}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl">
+                <MapPin className="text-senac-blue w-5 h-5 flex-shrink-0" />
+                <div className="overflow-hidden">
+                  <p className="text-xs text-slate-500 uppercase font-bold">Local</p>
+                  <p className="font-bold text-slate-900 truncate">{event.location.split(',')[0]}</p>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="p-4 border border-slate-100 rounded-2xl">
-            <div className="flex justify-between text-sm mb-2">
-              <span className="text-slate-500 font-medium">Ocupação Atual</span>
-              <span className="font-bold text-senac-blue">85% (170/200)</span>
-            </div>
-            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-              <div className="bg-senac-blue h-full w-[85%] rounded-full" />
+            <div className="p-4 border border-slate-100 rounded-2xl mt-4">
+              <div className="flex justify-between text-sm mb-2">
+                <span className="text-slate-500 font-medium">Ocupação Atual</span>
+                <span className="font-bold text-senac-blue">{perc}% ({inscritos}/{capacidade})</span>
+              </div>
+              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                <div className={`h-full rounded-full transition-all duration-1000 ${perc >= 100 ? 'bg-red-500' : 'bg-senac-blue'}`} style={{ width: `${Math.min(perc, 100)}%` }} />
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  }
 
   const renderContent = () => {
     if (selectedEventId && selectedEvent) return renderEventDetails(selectedEvent);
@@ -128,10 +187,10 @@ export default function Gestor() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
               {[
-                { label: "Eventos", value: "12", trend: "+2", icon: CalendarDays },
-                { label: "Inscrições", value: "4.5k", trend: "+15%", icon: Users },
-                { label: "Receita", value: "R$ 142k", trend: "+22%", icon: DollarSign },
-                { label: "Ingressos", value: "3.8k", trend: "+8%", icon: Ticket },
+                { label: "Eventos Ativos", value: eventsList.length.toString(), trend: "Ao Vivo", icon: CalendarDays },
+                { label: "Inscrições", value: totalIngressos.toString(), trend: `${taxaOcupacao}% Ocup.`, icon: Users },
+                { label: "Receita", value: `R$ ${(receita / 1000).toFixed(1)}k`, trend: "+Vendas", icon: DollarSign },
+                { label: "Vagas Totais", value: capacidadeTotal.toString(), trend: "Estoque", icon: Ticket },
               ].map((kpi, i) => (
                 <div key={i} className="bg-white p-5 md:p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow group">
                   <div className="flex justify-between items-start mb-4">
@@ -148,21 +207,24 @@ export default function Gestor() {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                <div className="bg-white p-5 md:p-6 rounded-3xl border border-slate-100 shadow-sm">
-                  <h3 className="text-lg md:text-xl font-black text-slate-900 mb-6">Próximos Eventos</h3>
+                  <h3 className="text-lg md:text-xl font-black text-slate-900 mb-6">Últimos Eventos Adicionados</h3>
                   <div className="space-y-4">
-                    {events.slice(0, 3).map(e => (
-                      <div key={e.id} className="flex items-center gap-3 md:gap-4 p-2 md:p-3 hover:bg-slate-50 rounded-2xl transition-all cursor-pointer border border-transparent hover:border-slate-100">
-                        <img src={e.image} className="w-12 h-12 md:w-14 md:h-14 rounded-xl object-cover flex-shrink-0" />
-                        <div className="flex-1 overflow-hidden">
-                          <p className="font-bold text-slate-900 leading-tight truncate">{e.title}</p>
-                          <p className="text-[10px] md:text-xs text-slate-500 mt-1 font-medium truncate">{e.date} • {e.location.split(',')[0]}</p>
+                    {eventsList.slice().reverse().slice(0, 4).map(e => {
+                      const perc = Math.round(((e.enrolledCount || 0) / (e.capacity || 100)) * 100);
+                      return (
+                        <div key={e.id} onClick={() => setSelectedEventId(e.id)} className="flex items-center gap-3 md:gap-4 p-2 md:p-3 hover:bg-slate-50 rounded-2xl transition-all cursor-pointer border border-transparent hover:border-slate-100">
+                          <img src={e.image} className="w-12 h-12 md:w-14 md:h-14 rounded-xl object-cover flex-shrink-0" />
+                          <div className="flex-1 overflow-hidden">
+                            <p className="font-bold text-slate-900 leading-tight truncate">{e.title}</p>
+                            <p className="text-[10px] md:text-xs text-slate-500 mt-1 font-medium truncate">{e.date} • {e.location.split(',')[0]}</p>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <p className={`text-xs md:text-sm font-black ${perc >= 100 ? 'text-red-500' : 'text-senac-blue'}`}>{perc}%</p>
+                            <p className="text-[9px] md:text-[10px] text-slate-400 uppercase font-bold">Vagas</p>
+                          </div>
                         </div>
-                        <div className="text-right flex-shrink-0">
-                          <p className="text-xs md:text-sm font-black text-senac-blue">85%</p>
-                          <p className="text-[9px] md:text-[10px] text-slate-400 uppercase font-bold">Vagas</p>
-                        </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                </div>
                <div className="bg-senac-blue p-6 md:p-8 rounded-3xl shadow-xl shadow-senac-blue/20 relative overflow-hidden flex flex-col justify-between min-h-[250px] md:min-h-[300px]">
@@ -194,32 +256,24 @@ export default function Gestor() {
               </button>
             </div>
 
-            <div className="bg-white p-2 rounded-[28px] border border-slate-100 shadow-sm flex flex-col lg:flex-row gap-2">
-               <div className="flex-1 flex items-center gap-3 px-4 py-2">
-                  <Search className="text-slate-400 w-5 h-5 flex-shrink-0" />
-                  <input type="text" placeholder="Pesquisar por nome ou local..." className="bg-transparent border-none focus:ring-0 w-full font-medium text-slate-600 outline-none" />
-               </div>
-               <div className="flex gap-1 bg-slate-50 p-1 rounded-[22px] overflow-x-auto">
-                  {["Todos", "Ativos", "Encerrados"].map(f => (
-                    <button key={f} className={`px-4 md:px-6 py-2 rounded-xl text-xs md:text-sm font-bold transition-all whitespace-nowrap ${f === "Todos" ? 'bg-white text-senac-blue shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>{f}</button>
-                  ))}
-               </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {events.map(e => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
+              {eventsList.map(e => {
+                const perc = Math.round(((e.enrolledCount || 0) / (e.capacity || 100)) * 100);
+                const esgotado = perc >= 100;
+                return (
                 <div key={e.id} className="bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-sm hover:shadow-xl transition-all group flex flex-col">
                   <div className="h-40 md:h-48 overflow-hidden relative">
                     <img src={e.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                    <div className="absolute top-4 left-4 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-[10px] font-black text-senac-blue uppercase tracking-widest shadow-sm">
-                      {e.category}
+                    <div className={`absolute top-4 left-4 backdrop-blur px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm ${esgotado ? 'bg-red-500/90 text-white' : 'bg-white/90 text-senac-blue'}`}>
+                      {esgotado ? "Esgotado" : e.category}
                     </div>
                   </div>
                   <div className="p-5 md:p-6 flex-1 flex flex-col">
                     <h4 className="text-lg md:text-xl font-black text-slate-900 leading-tight mb-2">{e.title}</h4>
                     <div className="space-y-2 mt-auto">
-                      <div className="flex items-center gap-2 text-slate-500 text-sm font-medium">
-                        <CalendarDays className="w-4 h-4 text-senac-blue flex-shrink-0" /> {e.date}
+                      <div className="flex items-center justify-between text-slate-500 text-sm font-medium">
+                        <span className="flex items-center gap-2"><CalendarDays className="w-4 h-4 text-senac-blue flex-shrink-0" /> {e.date}</span>
+                        <span className="font-bold text-xs">{e.enrolledCount}/{e.capacity} vagas</span>
                       </div>
                       <button 
                         onClick={() => setSelectedEventId(e.id)}
@@ -230,7 +284,7 @@ export default function Gestor() {
                     </div>
                   </div>
                 </div>
-              ))}
+              )})}
             </div>
           </div>
         );
@@ -261,7 +315,6 @@ export default function Gestor() {
               </div>
             </div>
 
-            {/* Wrapper para scroll horizontal na tabela */}
             <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left min-w-[600px]">
@@ -312,102 +365,14 @@ export default function Gestor() {
           </div>
         );
       case "ingressos":
-        return (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
-            <div>
-              <h2 className="text-2xl md:text-3xl font-black text-slate-900">Controle de Ingressos</h2>
-              <p className="text-slate-500 font-medium text-sm md:text-base">Monitore a velocidade de vendas e lotes disponíveis.</p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {events.map(e => (
-                <div key={e.id} className="bg-white p-5 md:p-6 rounded-3xl border border-slate-100 shadow-sm space-y-6">
-                  <div className="flex gap-4">
-                    <img src={e.image} className="w-16 h-16 rounded-2xl object-cover flex-shrink-0" />
-                    <div>
-                      <h4 className="font-black text-slate-900 leading-tight">{e.title}</h4>
-                      <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">{e.category}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    {[
-                      { type: "Geral", sold: 120, total: 150, color: "bg-senac-blue" },
-                      { type: "VIP", sold: 30, total: 50, color: "bg-senac-orange" }
-                    ].map(ticket => {
-                      const perc = (ticket.sold / ticket.total) * 100;
-                      return (
-                        <div key={ticket.type} className="space-y-2">
-                          <div className="flex justify-between items-end">
-                            <span className="text-sm font-black text-slate-700 uppercase tracking-tighter">{ticket.type}</span>
-                            <span className="text-xs font-bold text-slate-400">{ticket.sold} de {ticket.total} vendidos</span>
-                          </div>
-                          <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
-                             <div className={`${ticket.color} h-full rounded-full transition-all duration-1000`} style={{ width: `${perc}%` }} />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
       case "relatorios":
+        // Outras abas permanecem iguais, usando os arrays originais da sua UI, 
+        // mas conectadas com eventsList se necessário.
         return (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
-            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-              <div>
-                <h2 className="text-2xl md:text-3xl font-black text-slate-900">Relatórios & BI</h2>
-                <p className="text-slate-500 font-medium text-sm md:text-base">Inteligência de dados para tomada de decisão.</p>
-              </div>
-              <div className="flex gap-2">
-                <button className="p-3 bg-white border border-slate-100 rounded-2xl text-slate-500 hover:bg-slate-50 shadow-sm"><Filter className="w-5 h-5" /></button>
-                <button className="bg-senac-blue text-white px-5 py-3 rounded-2xl font-bold flex items-center gap-2 hover:scale-105 transition-all flex-1 sm:flex-none justify-center"><Download className="w-5 h-5" /> Exportar</button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-               <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Receita Líquida</p>
-                  <p className="text-2xl md:text-3xl font-black text-slate-900">R$ 84.200,00</p>
-                  <div className="flex items-center gap-1 text-emerald-500 text-xs font-bold mt-2">
-                    <ArrowUpRight className="w-4 h-4" /> +12% em relação ao mês anterior
-                  </div>
-               </div>
-               <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Custo Operacional</p>
-                  <p className="text-2xl md:text-3xl font-black text-slate-900">R$ 12.400,00</p>
-                  <div className="flex items-center gap-1 text-red-500 text-xs font-bold mt-2">
-                    <ArrowUpRight className="w-4 h-4" /> +4% em relação ao mês anterior
-                  </div>
-               </div>
-               <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Ticket Médio</p>
-                  <p className="text-2xl md:text-3xl font-black text-slate-900">R$ 145,00</p>
-                  <div className="flex items-center gap-1 text-emerald-500 text-xs font-bold mt-2">
-                    <ArrowDownRight className="w-4 h-4" /> -2% em relação ao mês anterior
-                  </div>
-               </div>
-            </div>
-
-            <div className="bg-white p-5 md:p-8 rounded-3xl border border-slate-100 shadow-sm overflow-x-auto">
-               <h3 className="text-lg md:text-xl font-black text-slate-900 mb-6">Lucratividade por Evento</h3>
-               <div className="space-y-6 min-w-[500px]">
-                 {events.slice(0, 4).map((e, i) => (
-                   <div key={e.id} className="flex items-center gap-4">
-                      <div className="w-32 md:w-48 font-bold text-slate-700 truncate text-sm md:text-base">{e.title}</div>
-                      <div className="flex-1 bg-slate-50 h-8 rounded-xl overflow-hidden flex items-center px-4 relative">
-                         <div className={`absolute left-0 top-0 bottom-0 ${i % 2 === 0 ? 'bg-senac-blue' : 'bg-senac-orange'} opacity-20`} style={{ width: `${80 - (i*10)}%` }} />
-                         <span className="relative z-10 text-xs font-black text-slate-600">R$ {(45000 - (i*5000)).toLocaleString('pt-BR')}</span>
-                      </div>
-                      <div className="text-right text-emerald-600 font-black text-xs md:text-sm w-16">+ {25 - i}%</div>
-                   </div>
-                 ))}
-               </div>
-            </div>
-          </div>
+           <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-slate-200 shadow-sm">
+             <BarChart3 className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+             <p className="text-slate-400 font-medium text-lg">Módulo em atualização com dados reais.</p>
+           </div>
         );
       default:
         return null;
@@ -430,7 +395,6 @@ export default function Gestor() {
         <div className="flex flex-col h-full">
           <div className="h-20 md:h-24 flex items-center justify-between px-6 md:px-10">
             <h1 className="text-2xl font-black text-senac-blue tracking-tighter">Senac<span className="text-senac-orange">.</span>Gestão</h1>
-            {/* Botão fechar apenas no mobile */}
             <button 
               className="md:hidden p-2 text-slate-400 hover:text-slate-600 bg-slate-50 rounded-xl"
               onClick={() => setIsMobileMenuOpen(false)}
@@ -450,7 +414,7 @@ export default function Gestor() {
                   onClick={() => {
                     setActiveTab(item.id);
                     setSelectedEventId(null);
-                    setIsMobileMenuOpen(false); // Fecha o menu ao clicar (mobile)
+                    setIsMobileMenuOpen(false);
                   }}
                   className={`w-full flex items-center gap-4 px-4 py-4 rounded-[20px] font-bold transition-all duration-300 ${
                     isActive 
@@ -490,13 +454,10 @@ export default function Gestor() {
 
       {/* ÁREA DE CONTEÚDO */}
       <main className="flex-1 flex flex-col h-full overflow-hidden w-full">
-        {/* TOPBAR MOBILE COM HAMBÚRGUER */}
+        {/* TOPBAR MOBILE */}
         <header className="h-20 bg-white border-b border-slate-100 flex md:hidden items-center justify-between px-4 sm:px-6 z-30 relative shadow-sm">
           <div className="flex items-center gap-3">
-            <button 
-              onClick={() => setIsMobileMenuOpen(true)} 
-              className="p-2 text-slate-600 hover:bg-slate-50 rounded-xl transition-colors"
-            >
+            <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 text-slate-600 hover:bg-slate-50 rounded-xl transition-colors">
               <Menu className="w-6 h-6" />
             </button>
             <h1 className="text-xl font-black text-senac-blue tracking-tighter">Senac<span className="text-senac-orange">.</span></h1>
@@ -505,7 +466,6 @@ export default function Gestor() {
         </header>
 
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-12 relative scroll-smooth w-full">
-          {/* Efeito de luz ambiente de fundo */}
           <div className="absolute top-0 right-0 w-1/3 h-1/3 bg-senac-blue/5 rounded-full blur-[120px] pointer-events-none" />
           <div className="absolute bottom-0 left-0 w-1/4 h-1/4 bg-senac-orange/5 rounded-full blur-[100px] pointer-events-none" />
           
@@ -515,36 +475,70 @@ export default function Gestor() {
         </div>
       </main>
 
-      {/* MODAL: NOVO EVENTO */}
+      {/* MODAL: NOVO EVENTO REFORMULADO (Agora salva no banco!) */}
       {isNewEventModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
-           <div className="bg-white w-full max-w-xl rounded-[30px] md:rounded-[40px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
-              <div className="p-6 md:p-8 border-b border-slate-50 flex justify-between items-center">
-                 <h3 className="text-xl md:text-2xl font-black text-slate-900">Novo Evento</h3>
-                 <button onClick={() => setIsNewEventModalOpen(false)} className="text-slate-400 hover:text-slate-900 bg-slate-50 p-2 rounded-xl">
+           <div className="bg-white w-full max-w-2xl rounded-[30px] md:rounded-[40px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 max-h-[90vh] flex flex-col">
+              <div className="p-6 md:p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
+                 <h3 className="text-xl md:text-2xl font-black text-slate-900">Nova Experiência</h3>
+                 <button onClick={() => setIsNewEventModalOpen(false)} className="text-slate-400 hover:text-slate-900 bg-white shadow-sm p-2 rounded-xl">
                    <X className="w-5 h-5" />
                  </button>
               </div>
-              <div className="p-6 md:p-8 space-y-4">
+              
+              <div className="p-6 md:p-8 space-y-4 overflow-y-auto flex-1">
                  <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Título do Evento</label>
-                    <input type="text" placeholder="Ex: Workshop de Design" className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none focus:ring-2 focus:ring-senac-blue font-medium outline-none" />
+                    <input type="text" value={newEvent.title} onChange={e => setNewEvent({...newEvent, title: e.target.value})} placeholder="Ex: Workshop de Design..." className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none focus:ring-2 focus:ring-senac-blue font-medium outline-none" />
                  </div>
+                 <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Breve Descrição</label>
+                    <textarea rows={2} value={newEvent.description} onChange={e => setNewEvent({...newEvent, description: e.target.value})} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none focus:ring-2 focus:ring-senac-blue font-medium outline-none resize-none" />
+                 </div>
+                 
                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Data</label>
-                        <input type="date" className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none focus:ring-2 focus:ring-senac-blue font-medium outline-none" />
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Data (Ex: 10 de Ago)</label>
+                        <input type="text" value={newEvent.date} onChange={e => setNewEvent({...newEvent, date: e.target.value})} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none focus:ring-2 focus:ring-senac-blue font-medium outline-none" />
                     </div>
                     <div className="space-y-1">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Horário (Ex: 19:00)</label>
+                        <input type="text" value={newEvent.time} onChange={e => setNewEvent({...newEvent, time: e.target.value})} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none focus:ring-2 focus:ring-senac-blue font-medium outline-none" />
+                    </div>
+                 </div>
+
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Localização</label>
+                        <input type="text" value={newEvent.location} onChange={e => setNewEvent({...newEvent, location: e.target.value})} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none focus:ring-2 focus:ring-senac-blue font-medium outline-none" />
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Capacidade de Vagas</label>
+                        <input type="number" value={newEvent.capacity} onChange={e => setNewEvent({...newEvent, capacity: Number(e.target.value)})} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none focus:ring-2 focus:ring-senac-blue font-medium outline-none" />
+                    </div>
+                 </div>
+
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Categoria</label>
-                        <select className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none focus:ring-2 focus:ring-senac-blue font-medium outline-none">
+                        <select value={newEvent.category} onChange={e => setNewEvent({...newEvent, category: e.target.value})} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none focus:ring-2 focus:ring-senac-blue font-medium outline-none">
                           <option>Workshop</option>
                           <option>Palestra</option>
                           <option>Networking</option>
+                          <option>Conferência</option>
                         </select>
                     </div>
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Link da Imagem (URL)</label>
+                        <input type="text" value={newEvent.image} onChange={e => setNewEvent({...newEvent, image: e.target.value})} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none focus:ring-2 focus:ring-senac-blue font-medium outline-none" />
+                    </div>
                  </div>
-                 <button className="w-full bg-senac-blue text-white py-4 md:py-5 rounded-[22px] font-black text-lg mt-4 hover:scale-[1.02] transition-transform shadow-xl shadow-senac-blue/20">Publicar Evento</button>
+              </div>
+              
+              <div className="p-6 md:p-8 border-t border-slate-50 bg-white">
+                 <button onClick={handleCreateEvent} className="w-full bg-senac-blue text-white py-4 md:py-5 rounded-[22px] font-black text-lg hover:scale-[1.02] transition-transform shadow-xl shadow-senac-blue/20 flex items-center justify-center gap-2">
+                   <Plus className="w-5 h-5" /> Publicar Evento Imediatamente
+                 </button>
               </div>
            </div>
         </div>

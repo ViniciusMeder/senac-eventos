@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { Search, Calendar, MapPin, ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
-import { events } from "../data/events";
+import { Search, Calendar, MapPin, ArrowRight, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { events, Event } from "../data/events";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Card, CardContent, CardFooter, CardHeader } from "../../components/ui/card";
@@ -28,7 +28,7 @@ const heroMedia = [
   },
   {
     id: 3,
-    type: "image  ",
+    type: "image",
     url: "https://www.remessaonline.com.br/blog/wp-content/uploads/2022/05/profissoes-do-futuro.jpg",
     title: "Futuro em Foco",
     subtitle: "Evolua sua carreira com os maiores especialistas."
@@ -72,6 +72,7 @@ export default function Home() {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeCategory, setActiveCategory] = useState("Todos");
   const [currentMedia, setCurrentMedia] = useState(0);
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null); // Estado para o Modal
   const eventsSectionRef = useRef<HTMLElement>(null);
 
   // troca o media automaticamente a cada 8 segundos
@@ -226,7 +227,7 @@ export default function Home() {
                   id="search"
                   type="text" 
                   placeholder="Pesquisar por nome, categoria ou local..." 
-                  className="w-full pl-20 pr-10 h-24 rounded-none border-none bg-transparent text-xl font-medium focus:ring-0 placeholder:text-slate-300"
+                  className="w-full pl-20 pr-10 h-24 rounded-none border-none bg-transparent text-xl font-medium focus:ring-0 placeholder:text-slate-300 outline-none"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -309,7 +310,13 @@ export default function Home() {
                     </div>
                   </CardContent>
                   <CardFooter className="p-10 pt-0">
-                    <Button id={`view-${event.id}`} variant="ghost" className="w-full h-16 bg-slate-50 hover:bg-senac-blue hover:text-white text-slate-900 rounded-[1.5rem] group/btn transition-all duration-500 font-black uppercase text-xs tracking-[0.3em] shadow-sm hover:shadow-xl">
+                    {/* AQUI ESTÁ A FUNCIONALIDADE DE "VER DETALHES" */}
+                    <Button 
+                      id={`view-${event.id}`} 
+                      onClick={() => setSelectedEvent(event)}
+                      variant="ghost" 
+                      className="w-full h-16 bg-slate-50 hover:bg-senac-blue hover:text-white text-slate-900 rounded-[1.5rem] group/btn transition-all duration-500 font-black uppercase text-xs tracking-[0.3em] shadow-sm hover:shadow-xl"
+                    >
                       VER DETALHES
                       <ArrowRight className="w-5 h-5 ml-3 group-hover/btn:translate-x-2 transition-transform" />
                     </Button>
@@ -346,10 +353,13 @@ export default function Home() {
           <p className="text-white/60 max-w-2xl mx-auto mb-14 text-xl font-light leading-relaxed">
             Faça parte da maior rede de eventos corporativos. Conecte-se com as melhores empresas e mude sua trajetória.
           </p>
-          <Button className="h-20 px-16 rounded-full bg-white text-senac-blue hover:bg-senac-orange hover:text-white font-black text-xl shadow-2xl transition-all duration-500 hover:scale-110 border-none group">
-            PARTICIPE AGORA
-            <ArrowRight className="w-6 h-6 ml-4 group-hover:translate-x-2 transition-transform" />
-          </Button>
+          {/* AQUI O BOTÃO PARTICIPE AGORA MANDA PARA LOGIN */}
+          <Link to="/login">
+            <Button className="h-20 px-16 rounded-full bg-white text-senac-blue hover:bg-senac-orange hover:text-white font-black text-xl shadow-2xl transition-all duration-500 hover:scale-110 border-none group">
+              PARTICIPE AGORA
+              <ArrowRight className="w-6 h-6 ml-4 group-hover:translate-x-2 transition-transform" />
+            </Button>
+          </Link>
         </div>
       </section>
 
@@ -414,6 +424,88 @@ export default function Home() {
           <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-senac-orange/20 rounded-full blur-[150px]" />
         </div>
       </footer>
+
+      {/* MODAL DE DETALHES DO EVENTO */}
+      <AnimatePresence>
+        {selectedEvent && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+              onClick={() => setSelectedEvent(null)}
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-3xl bg-white rounded-[2rem] md:rounded-[3rem] overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+            >
+              {/* Imagem e Título no Cabeçalho do Modal */}
+              <div className="relative h-48 md:h-64 w-full flex-shrink-0">
+                 <img src={selectedEvent.image} alt={selectedEvent.title} className="w-full h-full object-cover" />
+                 <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/40 to-transparent" />
+                 
+                 <button 
+                   onClick={() => setSelectedEvent(null)}
+                   className="absolute top-4 right-4 md:top-6 md:right-6 p-2 bg-white/20 hover:bg-white/40 backdrop-blur text-white rounded-full transition-all"
+                 >
+                   <X className="w-6 h-6" />
+                 </button>
+                 
+                 <div className="absolute bottom-6 left-6 md:bottom-8 md:left-8 pr-6">
+                   <Badge className="bg-senac-orange text-white border-none mb-3 px-3 py-1 font-bold tracking-widest uppercase text-[10px]">
+                     {selectedEvent.category}
+                   </Badge>
+                   <h2 className="text-2xl md:text-4xl font-black text-white leading-tight">
+                     {selectedEvent.title}
+                   </h2>
+                 </div>
+              </div>
+              
+              {/* Conteúdo do Modal */}
+              <div className="p-6 md:p-8 overflow-y-auto">
+                <div className="flex flex-col sm:flex-row gap-4 sm:gap-8 mb-8 border-b border-slate-100 pb-8">
+                   <div className="flex items-center gap-3 text-slate-600">
+                      <div className="w-12 h-12 rounded-full bg-senac-blue/10 flex items-center justify-center text-senac-blue flex-shrink-0">
+                        <Calendar className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Data e Hora</p>
+                        <p className="font-bold text-slate-900">{selectedEvent.date} • {selectedEvent.time}</p>
+                      </div>
+                   </div>
+                   <div className="flex items-center gap-3 text-slate-600">
+                      <div className="w-12 h-12 rounded-full bg-senac-orange/10 flex items-center justify-center text-senac-orange flex-shrink-0">
+                        <MapPin className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Local</p>
+                        <p className="font-bold text-slate-900">{selectedEvent.location}</p>
+                      </div>
+                   </div>
+                </div>
+                
+                <h3 className="text-sm font-black text-slate-900 mb-3 uppercase tracking-widest">Sobre a Experiência</h3>
+                <p className="text-slate-600 leading-relaxed font-medium mb-8">
+                  {selectedEvent.description}
+                  <br/><br/>
+                  Prepare-se para uma imersão completa com os maiores especialistas do mercado. Este evento foi desenhado para maximizar seu aprendizado e expandir sua rede de contatos de forma definitiva. Vagas limitadas!
+                </p>
+
+                {/* Botão para comprar/garantir vaga */}
+                <Link to="/login" onClick={() => setSelectedEvent(null)}>
+                  <Button className="w-full h-16 bg-senac-blue hover:bg-senac-blue/90 text-white rounded-[1.5rem] font-black text-sm uppercase tracking-[0.2em] shadow-xl shadow-senac-blue/20 hover:scale-[1.02] transition-all">
+                    Garantir Minha Vaga Agora
+                  </Button>
+                </Link>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }
