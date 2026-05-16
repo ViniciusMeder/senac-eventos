@@ -21,7 +21,7 @@ export default function Login() {
   if (userType === "gestor") {
     window.location.href = "/gestor";
   } else if (userType === "aluno") {
-    window.location.href = "/";
+    window.location.href = "/aluno";
   } else {
     setError("Credenciais inválidas.");
   }
